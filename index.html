@@ -118,7 +118,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="login-field">
         <label>Password</label>
-        <input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="off">
+        <input type="text" id="admin-pass-input" placeholder="••••••••" autocomplete="off">
       </div>
       <button class="login-btn" id="admin-login-btn">Login to Admin Panel</button>
     </div>
@@ -126,7 +126,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <!-- SIGNUP FORM -->
     <div id="auth-form-signup" style="display:none;">
       <div style="background:rgba(255,165,0,0.1);border:1px solid rgba(255,165,0,0.3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:rgba(255,200,100,0.9);">
-        ⚠️ Sub-admin accounts only. Use <b>@aaddmmiinn.com</b> email.
+        ⚠️ Sub-admin accounts only. Use <b>@aaddmmiinn.com</b> email.<br>
+        Invite code required. Get it from root admin.
       </div>
       <div class="login-field">
         <label>Full Name</label>
@@ -138,11 +139,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="login-field">
         <label>Password</label>
-        <input type="password" id="signup-pass-input" placeholder="Min 6 characters" autocomplete="off">
+        <input type="text" id="signup-pass-input" placeholder="Min 6 characters" autocomplete="off">
       </div>
       <div class="login-field">
         <label>Confirm Password</label>
-        <input type="password" id="signup-confirm-input" placeholder="Repeat password" autocomplete="off">
+        <input type="text" id="signup-confirm-input" placeholder="Repeat password" autocomplete="off">
       </div>
       <div class="login-field">
         <label>Admin Invite Code</label>
@@ -243,6 +244,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="admin-section-title">➕ Create Sub-Admin</div>
       <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:16px;margin-bottom:20px;">
         <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:12px;">Sub-admins can only see users who signed up with their referral link.</div>
+        <div style="background:rgba(26,86,255,0.1);border:1px solid rgba(26,86,255,0.3);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#4dabff;">
+          💡 Make sure <b>Email/Password</b> is enabled in Firebase Console → Authentication → Sign-in methods
+        </div>
         <input type="text" id="new-subadmin-name" class="admin-global-input" placeholder="Full Name" style="margin-bottom:8px;">
         <input type="email" id="new-subadmin-email" class="admin-global-input" placeholder="Email (auto-adds @aaddmmiinn.com)" style="margin-bottom:8px;">
         <input type="text" id="new-subadmin-password" class="admin-global-input" placeholder="Password" style="margin-bottom:8px;">
@@ -476,8 +480,10 @@ $('admin-login-btn').onclick = function(){
         if(data.error){
           var msg = data.error.message||'Signup failed.';
           if(msg==='EMAIL_EXISTS') msg='This email is already registered.';
+          else if(msg==='INVALID_EMAIL') msg='Invalid email address.';
           else if(msg.includes('WEAK_PASSWORD')) msg='Password too weak (min 6 chars).';
-          if(errEl) errEl.textContent=msg;
+          else if(msg==='OPERATION_NOT_ALLOWED') msg='Email signup is disabled in Firebase. Enable it in Firebase Console → Authentication → Sign-in methods → Email/Password.';
+          if(errEl){ errEl.textContent=msg; errEl.style.display='block'; errEl.style.color='#ff6b6b'; }
           signupBtn.textContent='Create Sub-Admin Account'; signupBtn.disabled=false;
           return;
         }
@@ -1392,9 +1398,11 @@ window.createSubAdmin = function(){
     if(data.error){
       var msg = data.error.message || 'Creation failed.';
       if(msg === 'EMAIL_EXISTS') msg = 'This email already exists.';
-      else if(msg === 'WEAK_PASSWORD : Password should be at least 6 characters') msg = 'Password too weak (min 6 chars).';
-      if(errEl){errEl.textContent=msg;errEl.style.display='block';}
-      if(btn){btn.textContent='Create Sub-Admin';btn.disabled=false;}
+      else if(msg === 'INVALID_EMAIL') msg = 'Invalid email address.';
+      else if(msg.includes('WEAK_PASSWORD')) msg = 'Password too weak (min 6 chars).';
+      else if(msg === 'OPERATION_NOT_ALLOWED') msg = 'Email/Password signin not enabled in Firebase. Go to Firebase Console → Authentication → Sign-in methods → Enable Email/Password.';
+      if(errEl){ errEl.textContent=msg; errEl.style.display='block'; errEl.style.color='#ff6b6b'; }
+      if(btn){ btn.textContent='Create Sub-Admin'; btn.disabled=false; }
       return;
     }
     
