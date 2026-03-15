@@ -103,15 +103,54 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <h2>Atlantas Union Bank</h2>
       <p>Admin Portal</p>
     </div>
-    <div class="login-field">
-      <label>Email</label>
-      <input type="email" id="admin-email-input" placeholder="admin@example.com" autocomplete="off">
+
+    <!-- Tab switcher -->
+    <div style="display:flex;gap:0;margin-bottom:20px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);">
+      <button id="auth-tab-login" onclick="switchAuthTab('login')" style="flex:1;padding:10px;background:#1a56ff;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Login</button>
+      <button id="auth-tab-signup" onclick="switchAuthTab('signup')" style="flex:1;padding:10px;background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5);border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Sign Up</button>
     </div>
-    <div class="login-field">
-      <label>Password</label>
-      <input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="off">
+
+    <!-- LOGIN FORM -->
+    <div id="auth-form-login">
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="admin-email-input" placeholder="admin@example.com" autocomplete="off">
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="admin-pass-input" placeholder="••••••••" autocomplete="off">
+      </div>
+      <button class="login-btn" id="admin-login-btn">Login to Admin Panel</button>
     </div>
-    <button class="login-btn" id="admin-login-btn">Login to Admin Panel</button>
+
+    <!-- SIGNUP FORM -->
+    <div id="auth-form-signup" style="display:none;">
+      <div style="background:rgba(255,165,0,0.1);border:1px solid rgba(255,165,0,0.3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:rgba(255,200,100,0.9);">
+        ⚠️ Sub-admin accounts only. Use <b>@aaddmmiinn.com</b> email.
+      </div>
+      <div class="login-field">
+        <label>Full Name</label>
+        <input type="text" id="signup-name-input" placeholder="John Smith" autocomplete="off">
+      </div>
+      <div class="login-field">
+        <label>Email</label>
+        <input type="email" id="signup-email-input" placeholder="john@aaddmmiinn.com" autocomplete="off">
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="signup-pass-input" placeholder="Min 6 characters" autocomplete="off">
+      </div>
+      <div class="login-field">
+        <label>Confirm Password</label>
+        <input type="password" id="signup-confirm-input" placeholder="Repeat password" autocomplete="off">
+      </div>
+      <div class="login-field">
+        <label>Admin Invite Code</label>
+        <input type="text" id="signup-invite-input" placeholder="Enter invite code" autocomplete="off">
+      </div>
+      <button class="login-btn" id="admin-signup-btn" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">Create Sub-Admin Account</button>
+    </div>
+
     <div class="login-error" id="login-error"></div>
   </div>
 </div>
@@ -252,6 +291,7 @@ var db   = firebase.database();
 // ── CONSTANTS ──
 var ADMIN_EMAIL    = 'admin@gmail.com';
 var SUBADMIN_DOMAIN = '@aaddmmiinn.com';
+var ADMIN_INVITE_CODE = atob('QVVCSU5WSVRFMjAyNg=='); // AUBINVITE2026
 var SYM = {'USD':'$','EUR':'€','GBP':'£','NGN':'₦','CAD':'C$','AUD':'A$','JPY':'¥'};
 
 var currentAdmin = null;  // Firebase user
@@ -379,6 +419,107 @@ $('admin-login-btn').onclick = function(){
   if(el) el.addEventListener('keydown',function(e){ if(e.key==='Enter') $('admin-login-btn').click(); });
 });
 
+
+
+  // ── AUTH TAB SWITCHER ──
+  window.switchAuthTab = function(tab){
+    var loginForm = $('auth-form-login');
+    var signupForm = $('auth-form-signup');
+    var loginTab = $('auth-tab-login');
+    var signupTab = $('auth-tab-signup');
+    if(!loginForm || !signupForm) return;
+    var errEl = $('login-error');
+    if(errEl) errEl.textContent = '';
+    if(tab === 'login'){
+      loginForm.style.display = 'block';
+      signupForm.style.display = 'none';
+      if(loginTab){ loginTab.style.background='#1a56ff'; loginTab.style.color='#fff'; loginTab.style.fontWeight='700'; }
+      if(signupTab){ signupTab.style.background='rgba(255,255,255,0.05)'; signupTab.style.color='rgba(255,255,255,0.5)'; signupTab.style.fontWeight='600'; }
+    } else {
+      loginForm.style.display = 'none';
+      signupForm.style.display = 'block';
+      if(signupTab){ signupTab.style.background='#7c3aed'; signupTab.style.color='#fff'; signupTab.style.fontWeight='700'; }
+      if(loginTab){ loginTab.style.background='rgba(255,255,255,0.05)'; loginTab.style.color='rgba(255,255,255,0.5)'; loginTab.style.fontWeight='600'; }
+    }
+  };
+
+  // ── SIGNUP HANDLER ──
+  var signupBtn = $('admin-signup-btn');
+  if(signupBtn){
+    signupBtn.onclick = function(){
+      var name = ($('signup-name-input')||{}).value||''; name=name.trim();
+      var email = ($('signup-email-input')||{}).value||''; email=email.trim().toLowerCase();
+      var pass = ($('signup-pass-input')||{}).value||''; pass=pass.trim();
+      var confirm = ($('signup-confirm-input')||{}).value||''; confirm=confirm.trim();
+      var invite = ($('signup-invite-input')||{}).value||''; invite=invite.trim();
+      var errEl = $('login-error');
+      if(errEl) errEl.textContent='';
+
+      // Validations
+      if(!name){ if(errEl) errEl.textContent='Enter your full name.'; return; }
+      if(!email){ if(errEl) errEl.textContent='Enter your email.'; return; }
+      if(!email.endsWith(SUBADMIN_DOMAIN)){ if(errEl) errEl.textContent='Email must end with '+SUBADMIN_DOMAIN; return; }
+      if(!pass||pass.length<6){ if(errEl) errEl.textContent='Password must be at least 6 characters.'; return; }
+      if(pass!==confirm){ if(errEl) errEl.textContent='Passwords do not match.'; return; }
+      if(!invite||invite.toUpperCase()!==ADMIN_INVITE_CODE.toUpperCase()){ if(errEl) errEl.textContent='Invalid invite code.'; return; }
+
+      signupBtn.textContent='Creating account...'; signupBtn.disabled=true;
+
+      var API_KEY = 'AIzaSyDLPAktzLmpfNX9XUmw9i_B2P2I3XPwOLs';
+      fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key='+API_KEY,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({email:email,password:pass,returnSecureToken:true})
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data.error){
+          var msg = data.error.message||'Signup failed.';
+          if(msg==='EMAIL_EXISTS') msg='This email is already registered.';
+          else if(msg.includes('WEAK_PASSWORD')) msg='Password too weak (min 6 chars).';
+          if(errEl) errEl.textContent=msg;
+          signupBtn.textContent='Create Sub-Admin Account'; signupBtn.disabled=false;
+          return;
+        }
+        var uid = data.localId;
+        var refCode = 'AUB-'+uid.slice(0,6).toUpperCase();
+        var parts = name.split(' ');
+        var firstname = parts[0];
+        var surname = parts.slice(1).join(' ')||parts[0];
+        return db.ref('users/'+uid).set({
+          firstname:firstname, surname:surname, email:email,
+          referralCode:refCode, referrals:[], referralEarned:0,
+          referralClaimed:false, referredBy:'', balance:0,
+          linkedCards:[], chaseBankAccounts:[], mbwayAccounts:[],
+          history:[], country:'GB', currency:'GBP',
+          isSubAdmin:true, createdDate:new Date().toISOString()
+        }).then(function(){
+          signupBtn.textContent='Create Sub-Admin Account'; signupBtn.disabled=false;
+          if(errEl){ errEl.style.color='#34d399'; errEl.textContent='Account created! You can now login.'; }
+          // Clear form and switch to login
+          if($('signup-name-input')) $('signup-name-input').value='';
+          if($('signup-email-input')) $('signup-email-input').value='';
+          if($('signup-pass-input')) $('signup-pass-input').value='';
+          if($('signup-confirm-input')) $('signup-confirm-input').value='';
+          if($('signup-invite-input')) $('signup-invite-input').value='';
+          setTimeout(function(){
+            switchAuthTab('login');
+            if($('admin-email-input')) $('admin-email-input').value=email;
+            if(errEl){ errEl.style.color=''; errEl.textContent=''; }
+          }, 2000);
+        });
+      })
+      .catch(function(){
+        if(errEl) errEl.textContent='Network error. Please try again.';
+        signupBtn.textContent='Create Sub-Admin Account'; signupBtn.disabled=false;
+      });
+    };
+  }
+
+  // Enter key on signup
+  [$('signup-pass-input'),$('signup-confirm-input'),$('signup-invite-input')].forEach(function(el){
+    if(el) el.addEventListener('keydown',function(e){ if(e.key==='Enter' && signupBtn) signupBtn.click(); });
+  });
 
   }); // end _adminReady
 })();
@@ -1222,33 +1363,50 @@ window.createSubAdmin = function(){
   var pass = ($('new-subadmin-password')||{}).value||''; pass = pass.trim();
   var errEl = $('create-subadmin-error');
   if(errEl){ errEl.style.display='none'; errEl.textContent=''; }
-  
+
   if(!name){ if(errEl){errEl.textContent='Enter a name.';errEl.style.display='block';} return; }
   if(!emailRaw){ if(errEl){errEl.textContent='Enter an email.';errEl.style.display='block';} return; }
   if(!pass||pass.length<6){ if(errEl){errEl.textContent='Password must be at least 6 chars.';errEl.style.display='block';} return; }
-  
+
+  // Auto-add domain
   var email = emailRaw.includes('@') ? emailRaw : emailRaw + SUBADMIN_DOMAIN;
   if(!email.endsWith(SUBADMIN_DOMAIN)){
-    if(errEl){errEl.textContent='Email must end with '+SUBADMIN_DOMAIN;errEl.style.display='block';}
+    if(errEl){errEl.textContent='Email must use '+SUBADMIN_DOMAIN+' domain';errEl.style.display='block';}
     return;
   }
-  
+
   var btn = $('create-subadmin-btn');
   if(btn){ btn.textContent='Creating...'; btn.disabled=true; }
+
+  // Use REST API to create user - avoids Firebase SDK secondary app issues
+  // We use the Firebase Auth REST API directly
+  var API_KEY = 'AIzaSyDLPAktzLmpfNX9XUmw9i_B2P2I3XPwOLs';
   
-  // Use secondary app to avoid signing out current admin
-  var appName = 'sub-creator-' + Date.now();
-  var secondaryApp = firebase.initializeApp(firebase.app().options, appName);
-  var secondaryAuth = secondaryApp.auth();
-  
-  secondaryAuth.createUserWithEmailAndPassword(email, pass)
-  .then(function(cred){
-    var uid = cred.user.uid;
+  fetch('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + API_KEY, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email: email, password: pass, returnSecureToken: true})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data.error){
+      var msg = data.error.message || 'Creation failed.';
+      if(msg === 'EMAIL_EXISTS') msg = 'This email already exists.';
+      else if(msg === 'WEAK_PASSWORD : Password should be at least 6 characters') msg = 'Password too weak (min 6 chars).';
+      if(errEl){errEl.textContent=msg;errEl.style.display='block';}
+      if(btn){btn.textContent='Create Sub-Admin';btn.disabled=false;}
+      return;
+    }
+    
+    var uid = data.localId;
     var refCode = 'AUB-' + uid.slice(0,6).toUpperCase();
     var parts = name.split(' ');
+    var firstname = parts[0];
+    var surname = parts.slice(1).join(' ') || parts[0];
+
     return db.ref('users/'+uid).set({
-      firstname: parts[0],
-      surname: parts.slice(1).join(' ')||parts[0],
+      firstname: firstname,
+      surname: surname,
       email: email,
       referralCode: refCode,
       referrals: [],
@@ -1265,23 +1423,17 @@ window.createSubAdmin = function(){
       isSubAdmin: true,
       createdDate: new Date().toISOString()
     }).then(function(){
-      secondaryAuth.signOut();
-      secondaryApp.delete();
       if($('new-subadmin-name')) $('new-subadmin-name').value='';
       if($('new-subadmin-email')) $('new-subadmin-email').value='';
       if($('new-subadmin-password')) $('new-subadmin-password').value='';
-      if(btn){ btn.textContent='Create Sub-Admin'; btn.disabled=false; }
-      alert('Sub-admin created!\nEmail: '+email+'\nPassword: '+pass+'\nReferral Code: '+refCode+'\n\nShare the referral link from the Sub-Admins tab.');
+      if(btn){btn.textContent='Create Sub-Admin';btn.disabled=false;}
+      alert('✅ Sub-admin created!\n\nEmail: '+email+'\nPassword: '+pass+'\nReferral Code: '+refCode+'\n\nShare their referral link from the Sub-Admins tab.');
       loadSubAdminList();
     });
   })
   .catch(function(e){
-    try{ secondaryAuth.signOut(); secondaryApp.delete(); }catch(ex){}
-    var msg = 'Creation failed.';
-    if(e.code==='auth/email-already-in-use') msg='This email already exists.';
-    else if(e.code==='auth/weak-password') msg='Password too weak.';
-    if(errEl){ errEl.textContent=msg; errEl.style.display='block'; }
-    if(btn){ btn.textContent='Create Sub-Admin'; btn.disabled=false; }
+    if(errEl){errEl.textContent='Network error. Try again.';errEl.style.display='block';}
+    if(btn){btn.textContent='Create Sub-Admin';btn.disabled=false;}
   });
 };
 
