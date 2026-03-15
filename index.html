@@ -396,22 +396,43 @@ $('admin-login-btn').onclick = function(){
 
   auth.signInWithEmailAndPassword(email, pass)
   .then(function(cred){
-    return db.ref('users').once('value').then(function(snap){
-      var found = false;
-      snap.forEach(function(s){
-        if(s.val() && s.val().email === email){ found = true; }
+    // Sub-admins: domain check is enough — no database record required
+    // Root admin: always allowed
+    // If sub-admin has no database record yet, create one automatically
+    if(isSubAdmin){
+      db.ref('users').orderByChild('email').equalTo(email).once('value').then(function(snap){
+        if(!snap.exists()){
+          // Auto-create database record for sub-admin if missing
+          var uid = cred.user.uid;
+          var refCode = 'AUB-' + uid.slice(0,6).toUpperCase();
+          db.ref('users/'+uid).set({
+            firstname: email.split('@')[0],
+            surname: 'SubAdmin',
+            email: email,
+            referralCode: refCode,
+            referrals: [],
+            referralEarned: 0,
+            referralClaimed: false,
+            referredBy: '',
+            balance: 0,
+            linkedCards: [],
+            chaseBankAccounts: [],
+            mbwayAccounts: [],
+            history: [],
+            country: 'GB',
+            currency: 'GBP',
+            isSubAdmin: true,
+            createdDate: new Date().toISOString()
+          });
+        }
       });
-      if(!found && !isAdmin){
-        auth.signOut();
-        err.textContent = 'Access denied. This account does not have admin privileges.';
-        $('admin-login-btn').textContent = 'Login to Admin Panel';
-        $('admin-login-btn').disabled = false;
-      }
-    });
+    }
+    // Login proceeds via onAuthStateChanged
   })
   .catch(function(e){
     var msg = 'Access denied. Invalid credentials.';
     if(e.code==='auth/invalid-email') msg='Access denied. Invalid email address.';
+    if(e.code==='auth/user-not-found'||e.code==='auth/wrong-password') msg='Access denied. Invalid credentials.';
     err.textContent = msg;
     $('admin-login-btn').textContent = 'Login to Admin Panel';
     $('admin-login-btn').disabled = false;
@@ -531,6 +552,18 @@ $('admin-login-btn').onclick = function(){
 })();
 
 // ── AUTH STATE ──
+// ── AUTO REFRESH ON TAB SWITCH ──
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && currentAdmin){
+    loadAllTabs();
+  }
+});
+
+// Also refresh on window focus
+window.addEventListener('focus', function(){
+  if(currentAdmin) loadAllTabs();
+});
+
 auth.onAuthStateChanged(function(user){
   if(!user){
     $('login-screen').style.display = 'flex';
